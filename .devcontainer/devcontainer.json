@@ -1,0 +1,9 @@
+{
+  "name": "Ubuntu 22.04 Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:1": {}
+  },
+  "runArgs": ["--privileged"],
+  "postCreateCommand": "apt update && apt install -y build-essential cmake g++ gcc"
+}
