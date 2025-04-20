@@ -37,6 +37,22 @@ static NodeStructure GetNodeStructure(const std::string &path)
     return {full_path, subdirectories, file_name};
 }
 
+template <auto type> void FsManager::MakeNode(const std::string &path, const mode_t &mode)
+{
+    const auto node = GetNodeStructure(path);
+
+    const auto node_id = GetNodeId(node.subdirectories);
+
+    if (!node_id)
+        throw std::runtime_error(std::format("No such file or directory: {}", path));
+
+    const auto create_time = time(0);
+
+    db.nodes.push_back(
+        {.inode_id = NodeId, .type = type, .atime = create_time, .mtime = create_time, .ctime = create_time});
+    db.entry.push_back({node_id.value(), node.name, NodeId++});
+}
+
 std::optional<int> FsManager::GetNodeId(const auto start, const auto end, int parent_node)
 {
     if (start == end)
@@ -60,7 +76,7 @@ std::optional<int> FsManager::GetNodeId(const std::vector<std::string> &subdirec
     return GetNodeId(subdirectories.begin(), subdirectories.end(), parent_node);
 }
 
-Inode FsManager::GetAttribute(const std::string &path)
+std::vector<Inode>::iterator FsManager::GetAttribute(const std::string &path)
 {
     const auto node = GetNodeStructure(path);
 
@@ -69,27 +85,35 @@ Inode FsManager::GetAttribute(const std::string &path)
     if (!node_id)
         throw std::runtime_error(std::format("No such file or directory: {}", path));
 
-    return *std::ranges::find(db.nodes, node_id.value(), &Inode::inode_id);
+    return std::ranges::find(db.nodes, node_id.value(), &Inode::inode_id);
 }
 
-void FsManager::MakeDirectory(const std::string &path)
-{
-    const auto node = GetNodeStructure(path);
-
-    const auto node_id = GetNodeId(node.subdirectories);
-
-    if (!node_id)
-        throw std::runtime_error(std::format("No such file or directory: {}", path));
-
-    db.nodes.push_back({NodeId, S_IFDIR});
-    db.entry.push_back({node_id.value(), node.name, NodeId++});
-}
+void FsManager::MakeDirectory(const std::string &path) { MakeNode<S_IFDIR>(path, {}); }
 
 void FsManager::RemoveDirectory(const std::string &path) {}
 
-Bytes FsManager::ReadFile(const std::string &path, const int size, const int offset) { return Bytes(); }
+void FsManager::MakeFile(const std::string &path, const mode_t mode) { MakeNode<S_IFREG>(path, mode); }
 
-void FsManager::WriteFile(const std::string &path, std::span<int> buffer, const int offset) {}
+void FsManager::MakeTimestamps(const std::string &path, const struct timespec ts[2])
+{
+    auto node = GetAttribute(path);
+
+    node->atime = ts[0].tv_nsec == UTIME_NOW ? time(0) : node->atime;
+    node->mtime = ts[1].tv_nsec == UTIME_NOW ? time(0) : node->mtime;
+}
+
+Bytes FsManager::ReadFile(const std::string &path, const int size, const int offset)
+{
+    auto node = GetAttribute(path);
+    return node->data;
+}
+
+void FsManager::WriteFile(const std::string &path, const std::string &buffer, const int offset)
+{
+    auto node = GetAttribute(path);
+
+    node->data = std::string(buffer.data());
+}
 
 std::vector<std::string> FsManager::ReadDirectory(const std::string &path)
 {

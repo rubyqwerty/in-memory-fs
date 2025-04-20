@@ -30,11 +30,11 @@ try
 
     const auto node = manager.GetAttribute(path);
 
-    stbuf->st_mode = node.type;
-    stbuf->st_size = node.size;
-    stbuf->st_atime = node.atime;
-    stbuf->st_mtime = node.mtime;
-    stbuf->st_ctime = node.ctime;
+    stbuf->st_mode = node->type;
+    stbuf->st_size = node->size;
+    stbuf->st_atime = node->atime;
+    stbuf->st_mtime = node->mtime;
+    stbuf->st_ctime = node->ctime;
 
     return 0;
 }
@@ -49,7 +49,6 @@ static int memfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, of
     filler(buf, ".", nullptr, 0, static_cast<fuse_fill_dir_flags>(0));
     filler(buf, "..", nullptr, 0, static_cast<fuse_fill_dir_flags>(0));
 
-    
     for (const auto &node : manager.ReadDirectory(path))
     {
         filler(buf, node.data(), nullptr, 0, static_cast<fuse_fill_dir_flags>(0));
@@ -69,11 +68,35 @@ catch (...)
     return -ENOENT;
 }
 
-static int memfs_create(const char *path, mode_t mode, struct fuse_file_info *fi) { return -ENOENT; }
+static int memfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+try
+{
+    manager.MakeFile(path, mode);
+    return 0;
+}
+catch (...)
+{
+    return -ENOENT;
+}
 
-static int memfs_open(const char *path, struct fuse_file_info *fi) { return -ENOENT; }
+static int memfs_open(const char *path, struct fuse_file_info *fi)
+try
+{
+    return -ENOENT;
+}
+catch (...)
+{
+    return -ENOENT;
+}
 
 static int memfs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+try
+{
+    manager.WriteFile(path, std::string(buf, size), offset);
+
+    return 0;
+}
+catch (...)
 {
     return -ENOENT;
 }
@@ -83,8 +106,26 @@ static int memfs_read(const char *path, char *buf, size_t size, off_t offset, st
     return -ENOENT;
 }
 
+static int memfs_utimens(const char *path, const struct timespec ts[2], struct fuse_file_info *fi)
+try
+{
+    manager.MakeTimestamps(path, ts);
+
+    return 0;
+}
+catch (...)
+{
+    return -ENOENT;
+}
+
 static const struct fuse_operations memfs_oper = {
-    .getattr = memfs_getattr, .mkdir = memfs_mkdir, .readdir = memfs_readdir,
+    .getattr = memfs_getattr,
+    .mkdir = memfs_mkdir,
+    .read = memfs_read,
+    .write = memfs_write,
+    .readdir = memfs_readdir,
+    .create = memfs_create,
+    .utimens = memfs_utimens,
 
     // .create = memfs_create,
 

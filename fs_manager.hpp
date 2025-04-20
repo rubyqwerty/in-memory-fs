@@ -7,16 +7,17 @@
 #include <vector>
 
 /// @brief Алиас на набор байты
-using Bytes = std::vector<uint8_t>;
+using Bytes = std::string;
 
 struct Inode
 {
     int inode_id;
     mode_t type;
     int size;
-    int atime;
-    int mtime;
-    int ctime;
+    time_t atime;
+    time_t mtime;
+    time_t ctime;
+    std::string data{};
 };
 
 struct Directory
@@ -39,7 +40,7 @@ public:
     /// @brief Получить атрибуты файла
     /// @param path Путь до файла
     /// @return Структура с описанием атрибутов файла
-    Inode GetAttribute(const std::string &path);
+    std::vector<Inode>::iterator GetAttribute(const std::string &path);
 
     /// @brief Создать новую директорию
     /// @param path Путь до директории
@@ -48,6 +49,16 @@ public:
     /// @brief Удалить директорию
     /// @param path Путь до директории
     void RemoveDirectory(const std::string &path);
+
+    /// @brief Создать файл
+    /// @param path Путь до файла
+    /// @param mode Атрибуты файла
+    void MakeFile(const std::string &path, const mode_t mode);
+
+    /// @brief Установить временные метки
+    /// @param path Путь до узла
+    /// @param ts Временные метки
+    void MakeTimestamps(const std::string &path, const struct timespec ts[2]);
 
     /// @brief Прочитать файл
     /// @param path Путь до файла
@@ -60,7 +71,7 @@ public:
     /// @param path Путь до файла
     /// @param buffer Буфер с записываемыми данными
     /// @param offset Смещение относительно начала
-    void WriteFile(const std::string &path, std::span<int> buffer, const int offset);
+    void WriteFile(const std::string &path, const std::string &buffer, const int offset);
 
     /// @brief Прочитать директорию
     /// @param path Путь до директории
@@ -68,6 +79,8 @@ public:
     std::vector<std::string> ReadDirectory(const std::string &path);
 
 private:
+    template <auto type> void MakeNode(const std::string &path, const mode_t &mode);
+
     std::optional<int> GetNodeId(const auto start, const auto end, int parent_node);
 
     std::optional<int> GetNodeId(const std::vector<std::string> &path);
