@@ -113,10 +113,13 @@ void FsManager::WriteFile(const std::string &path, const std::string &buffer, co
     auto node = GetAttribute(path);
 
     node->data = std::string(buffer.data());
+    node->size = buffer.size();
 }
 
 std::vector<std::string> FsManager::ReadDirectory(const std::string &path)
 {
+    if (path == "")
+        return {};
     const auto node = GetNodeStructure(path);
 
     const auto node_id = path == "/" ? GetRootNodeId() : GetNodeId(node.full_path);

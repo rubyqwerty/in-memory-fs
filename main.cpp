@@ -1,5 +1,4 @@
 #include <fcntl.h>
-#include <sys/stat.h>
 
 #include <iterator>
 #define FUSE_USE_VERSION 32
@@ -9,12 +8,12 @@
 #include "fs_manager.hpp"
 #include <cstring>
 #include <ctime>
+#include <format>
 #include <iostream>
 #include <map>
 #include <ranges>
 #include <string>
 #include <vector>
-
 FsManager manager;
 
 static int memfs_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
@@ -71,7 +70,12 @@ catch (...)
 static int memfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 try
 {
+    fi->fh = reinterpret_cast<uint64_t>(new std::string(path));
+
     manager.MakeFile(path, mode);
+
+    std::cout << std::format("-----------------Файл создан {}", fi->fh) << std::endl;
+
     return 0;
 }
 catch (...)
@@ -82,7 +86,25 @@ catch (...)
 static int memfs_open(const char *path, struct fuse_file_info *fi)
 try
 {
+    fi->fh = reinterpret_cast<uint64_t>(new std::string(path));
+
+    std::cout << std::format("-----------------Открыт файл {}", fi->fh) << std::endl;
+
+    return 0;
+}
+catch (...)
+{
     return -ENOENT;
+}
+
+static int memfs_opendir(const char *path, struct fuse_file_info *fi)
+try
+{
+    fi->fh = reinterpret_cast<uint64_t>(new std::string(path));
+
+    std::cout << std::format("-----------------Открыта папка {}", fi->fh) << std::endl;
+
+    return 0;
 }
 catch (...)
 {
@@ -92,16 +114,59 @@ catch (...)
 static int memfs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 try
 {
-    manager.WriteFile(path, std::string(buf, size), offset);
+    const auto fh = reinterpret_cast<const std::string *>(fi->fh);
 
-    return 0;
+    if (!fh)
+        return -ENOENT;
+
+    std::cout << std::format("-----------------Запись в файл {}", *fh) << std::endl;
+    std::cout << std::string(buf, size - 1) << std::endl;
+
+    manager.WriteFile(*fh, std::string(buf, size - 1), offset);
+
+    return size;
 }
 catch (...)
 {
     return -ENOENT;
 }
 
+static int memfs_release(const char *path, struct fuse_file_info *fi)
+{
+    const auto fh = reinterpret_cast<const std::string *>(fi->fh);
+
+    std::cout << "Закрыт файл: " << *fh << std::endl;
+
+    delete fh;
+
+    return 0;
+}
+
+static int memfs_releasedir(const char *path, struct fuse_file_info *fi)
+{
+    const auto fh = reinterpret_cast<const std::string *>(fi->fh);
+
+    delete fh;
+    std::cout << "Закрыта директория: " << *fh << std::endl;
+    return 0;
+}
+
 static int memfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+try
+{
+    const auto fh = reinterpret_cast<const std::string *>(fi->fh);
+
+    std::cout << std::format("-----------------Чтение из файла {}", *fh) << std::endl;
+
+    auto buffer = manager.ReadFile(*fh, size, offset);
+
+    std::cout << std::format("Прочитан файл {}, размер {}", buffer, buffer.size()) << std::endl;
+
+    std::copy(buffer.data(), buffer.data() + buffer.size(), buf);
+
+    return size;
+}
+catch (...)
 {
     return -ENOENT;
 }
@@ -121,13 +186,17 @@ catch (...)
 static const struct fuse_operations memfs_oper = {
     .getattr = memfs_getattr,
     .mkdir = memfs_mkdir,
+    .open = memfs_open,
     .read = memfs_read,
+
     .write = memfs_write,
+    .release = memfs_release,
+    //  .opendir = memfs_opendir,
     .readdir = memfs_readdir,
+    // .releasedir = memfs_releasedir,
+
     .create = memfs_create,
     .utimens = memfs_utimens,
-
-    // .create = memfs_create,
 
 };
 
