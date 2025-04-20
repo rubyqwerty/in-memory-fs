@@ -102,15 +102,16 @@ void FsManager::MakeTimestamps(const std::string &path, const struct timespec ts
     node->mtime = ts[1].tv_nsec == UTIME_NOW ? time(0) : node->mtime;
 }
 
-Bytes FsManager::ReadFile(const std::string &path, const int size, const int offset)
+Bytes FsManager::ReadFile(const int node_id, const int size, const int offset)
 {
-    auto node = GetAttribute(path);
+    auto node = std::ranges::find(db.nodes, node_id, &Inode::inode_id);
+
     return node->data;
 }
 
-void FsManager::WriteFile(const std::string &path, const std::string &buffer, const int offset)
+void FsManager::WriteFile(const int node_id, const std::string &buffer, const int offset)
 {
-    auto node = GetAttribute(path);
+    auto node = std::ranges::find(db.nodes, node_id, &Inode::inode_id);
 
     node->data = std::string(buffer.data());
     node->size = buffer.size();

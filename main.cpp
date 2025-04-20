@@ -16,6 +16,11 @@
 #include <vector>
 FsManager manager;
 
+struct Meta
+{
+    Inode node;
+};
+
 static int memfs_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *)
 try
 {
@@ -70,9 +75,11 @@ catch (...)
 static int memfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 try
 {
-    fi->fh = reinterpret_cast<uint64_t>(new std::string(path));
-
     manager.MakeFile(path, mode);
+
+    const auto node = manager.GetAttribute(path);
+
+    fi->fh = reinterpret_cast<uint64_t>(new Meta{*node});
 
     std::cout << std::format("-----------------Файл создан {}", fi->fh) << std::endl;
 
@@ -86,23 +93,11 @@ catch (...)
 static int memfs_open(const char *path, struct fuse_file_info *fi)
 try
 {
-    fi->fh = reinterpret_cast<uint64_t>(new std::string(path));
+    const auto node = manager.GetAttribute(path);
 
-    std::cout << std::format("-----------------Открыт файл {}", fi->fh) << std::endl;
+    fi->fh = reinterpret_cast<uint64_t>(new Meta{*node});
 
-    return 0;
-}
-catch (...)
-{
-    return -ENOENT;
-}
-
-static int memfs_opendir(const char *path, struct fuse_file_info *fi)
-try
-{
-    fi->fh = reinterpret_cast<uint64_t>(new std::string(path));
-
-    std::cout << std::format("-----------------Открыта папка {}", fi->fh) << std::endl;
+    std::cout << std::format("-----------------Открыт файл {}", path) << std::endl;
 
     return 0;
 }
@@ -114,15 +109,15 @@ catch (...)
 static int memfs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 try
 {
-    const auto fh = reinterpret_cast<const std::string *>(fi->fh);
+    const auto fh = reinterpret_cast<const Meta *>(fi->fh);
 
     if (!fh)
         return -ENOENT;
 
-    std::cout << std::format("-----------------Запись в файл {}", *fh) << std::endl;
+    std::cout << std::format("-----------------Запись в файл {}", fh->node.inode_id) << std::endl;
     std::cout << std::string(buf, size - 1) << std::endl;
 
-    manager.WriteFile(*fh, std::string(buf, size - 1), offset);
+    manager.WriteFile(fh->node.inode_id, std::string(buf, size - 1), offset);
 
     return size;
 }
@@ -133,32 +128,23 @@ catch (...)
 
 static int memfs_release(const char *path, struct fuse_file_info *fi)
 {
-    const auto fh = reinterpret_cast<const std::string *>(fi->fh);
+    const auto fh = reinterpret_cast<const Meta *>(fi->fh);
 
-    std::cout << "Закрыт файл: " << *fh << std::endl;
-
-    delete fh;
-
-    return 0;
-}
-
-static int memfs_releasedir(const char *path, struct fuse_file_info *fi)
-{
-    const auto fh = reinterpret_cast<const std::string *>(fi->fh);
+    std::cout << "Закрыт файл: " << fh->node.inode_id << std::endl;
 
     delete fh;
-    std::cout << "Закрыта директория: " << *fh << std::endl;
+
     return 0;
 }
 
 static int memfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 try
 {
-    const auto fh = reinterpret_cast<const std::string *>(fi->fh);
+    const auto fh = reinterpret_cast<const Meta *>(fi->fh);
 
-    std::cout << std::format("-----------------Чтение из файла {}", *fh) << std::endl;
+    std::cout << std::format("-----------------Чтение из файла {}", fh->node.inode_id) << std::endl;
 
-    auto buffer = manager.ReadFile(*fh, size, offset);
+    auto buffer = manager.ReadFile(fh->node.inode_id, size, offset);
 
     std::cout << std::format("Прочитан файл {}, размер {}", buffer, buffer.size()) << std::endl;
 
@@ -191,9 +177,7 @@ static const struct fuse_operations memfs_oper = {
 
     .write = memfs_write,
     .release = memfs_release,
-    //  .opendir = memfs_opendir,
     .readdir = memfs_readdir,
-    // .releasedir = memfs_releasedir,
 
     .create = memfs_create,
     .utimens = memfs_utimens,

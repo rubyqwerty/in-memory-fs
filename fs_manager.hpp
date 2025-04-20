@@ -61,17 +61,17 @@ public:
     void MakeTimestamps(const std::string &path, const struct timespec ts[2]);
 
     /// @brief Прочитать файл
-    /// @param path Путь до файла
+    /// @param node_id Идентификатор файла
     /// @param size Размер считываемых данных
     /// @param offset Смещение относительно начала файла
     /// @return Считанные данные
-    Bytes ReadFile(const std::string &path, const int size, const int offset);
+    Bytes ReadFile(const int node_id, const int size, const int offset);
 
     /// @brief Записать данные в файл
-    /// @param path Путь до файла
+    /// @param node_id Идентификатор файла
     /// @param buffer Буфер с записываемыми данными
     /// @param offset Смещение относительно начала
-    void WriteFile(const std::string &path, const std::string &buffer, const int offset);
+    void WriteFile(const int node_id, const std::string &buffer, const int offset);
 
     /// @brief Прочитать директорию
     /// @param path Путь до директории
