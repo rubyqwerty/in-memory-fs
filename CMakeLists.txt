@@ -7,7 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_LINKER_TYPE MOLD)
 
-add_executable(fs main.cpp fs_manager.cpp)
+find_package(libfuse REQUIRED)
+find_package(spdlog REQUIRED)
 
-target_link_libraries(fs libfuse3.so)
+add_executable(fs core/main.cpp core/fs_manager.cpp)
+
+target_link_libraries(fs libfuse::libfuse spdlog::spdlog)
 

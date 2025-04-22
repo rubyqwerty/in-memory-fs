@@ -1,3 +1,4 @@
+#include "spdlog/spdlog.h"
 #include <cstdint>
 #include <fcntl.h>
 #include <optional>
