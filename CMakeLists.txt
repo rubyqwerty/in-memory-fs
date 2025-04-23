@@ -10,7 +10,7 @@ set(CMAKE_LINKER_TYPE MOLD)
 find_package(libfuse REQUIRED)
 find_package(spdlog REQUIRED)
 
-add_executable(fs core/main.cpp core/fs_manager.cpp)
+add_executable(fs core/main.cpp core/fs_manager.cpp core/fs_operations.cpp)
 
 target_link_libraries(fs libfuse::libfuse spdlog::spdlog)
 
